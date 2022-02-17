@@ -100,21 +100,39 @@ function extractCargoResult(output) {
     const ret = [];
     // Example:
     //   test bench_fib_20 ... bench:      37,174 ns/iter (+/- 7,527)
-    const reExtract = /^test (.+)\s+\.\.\. bench:\s+([0-9,]+) ns\/iter \(\+\/- ([0-9,]+)\)$/;
+    //   [[MEMORY]] bitmaps_with_100000_namespaces ... bench: 366092 KiB
+    //   [[RECALL]] sift_128_1M_topk_100 ... bench: 0.99961716
+    const reTimeExtract = /^test (.+)\s+\.\.\. bench:\s+([0-9,]+) ns\/iter \(\+\/- ([0-9,]+)\)$/;
+    const reMemExtract = /^\[\[MEMORY\]\] (.+)\s+\.\.\. bench:\s+([0-9.]+) (.+)$/;
+    const reRecallExtract = /^\[\[RECALL\]\] (.+)\s+\.\.\. bench:\s+([0-9.]+)$/;
     const reComma = /,/g;
     for (const line of lines) {
-        const m = line.match(reExtract);
-        if (m === null) {
+        var name;
+        var value;
+        var range = '';
+        var unit;
+        var m;
+        if ((m = line.match(reTimeExtract)) !== null) {
+            name = m[1].trim();
+            value = parseInt(m[2].replace(reComma, ''), 10);
+            range = `± ${m[3].replace(reComma, '')}`;
+            unit = 'ns/iter';
+        } else if ((m = line.match(reMemExtract)) !== null) {
+            name = m[1].trim() + ' - memory';
+            value = parseFloat(m[2]);
+            unit = m[3];
+        } else if ((m = line.match(reRecallExtract)) !== null) {
+            name = m[1].trim() + ' - recall';
+            value = parseFloat(m[2]);
+            unit = ''
+        } else {
             continue;
         }
-        const name = m[1].trim();
-        const value = parseInt(m[2].replace(reComma, ''), 10);
-        const range = m[3].replace(reComma, '');
         ret.push({
             name,
             value,
-            range: `± ${range}`,
-            unit: 'ns/iter',
+            range,
+            unit,
         });
     }
     return ret;
